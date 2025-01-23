@@ -125,19 +125,11 @@ if st.sidebar.checkbox("Afficher des visualisations"):
         st.pyplot(fig2)
 
     with col4:
-        fig1, ax1 = plt.subplots(figsize=(7, 5))
+        fig3, ax3 = plt.subplots(figsize=(7, 5))
         st.markdown("#### Impact de la Charge de Travail sur l'Évaluation de performance")
-        sns.scatterplot(x='average_montly_hours', y='last_evaluation', hue='left', data=df, ax=ax1)
+        sns.scatterplot(x='average_montly_hours', y='last_evaluation', hue='left', data=df, ax=ax3)
         plt.tight_layout()
-        st.pyplot(fig2)
-
-    # Répartition du turnover
-    #with col4:
-    #    fig1, ax1 = plt.subplots(figsize=(7, 5))
-    ##    plt.pie(labels='job', data=df[[df['left'] == 1]], ax=ax1)
-    #    ax1.set_title("Départs en fonction de la Satisfaction et l'Évaluation")
-    #    plt.tight_layout()
-    #    st.pyplot(fig1)
+        st.pyplot(fig3)
 
 
 # Afficher les KPIs
