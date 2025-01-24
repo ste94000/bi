@@ -126,8 +126,8 @@ if st.sidebar.checkbox("Afficher des visualisations"):
 
     with col4:
         fig3, ax3 = plt.subplots(figsize=(7, 5))
-        st.markdown("#### Impact de la Charge de Travail sur l'Évaluation de performance")
-        sns.scatterplot(x='average_montly_hours', y='last_evaluation', hue='left', data=df, ax=ax3)
+        st.markdown("#### Impact de la Charge de Travail sur l'Évaluation de performance et les Départs")
+        sns.scatterplot(x='average_montly_hours', y='last_evaluation', hue='left', data=df, ax=ax2)
         plt.tight_layout()
         st.pyplot(fig3)
 
