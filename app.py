@@ -1,6 +1,10 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objs as go
+from plotly.subplots import make_subplots
+
+
 
 # Configuration du tableau de bord
 st.set_page_config(page_title="Tableau de bord RH - Pilotage du Turnover", layout="wide")
@@ -154,6 +158,83 @@ if st.sidebar.checkbox("Afficher des visualisations"):
             title="Heures mensuelles vs. Évaluation"
         )
         st.plotly_chart(fig_workload_eval)
+
+if st.sidebar.checkbox("Analyse de la satisfaction"):
+    st.subheader("Visualisations du Turnover")
+
+    st.subheader("Satisfaction moyenne par Heures de travail, Ancienneté et Évaluation (courbes)")
+
+    # Pour tracer 3 courbes distinctes sur un même figure, on peut utiliser make_subplots.
+    # On va binner (discrétiser) les variables continues (heures de travail, évaluation).
+    # L'ancienneté (time_spend_company) est déjà discrète (1,2,3,...).
+
+    # A) Satisfaction vs heures de travail
+    df_hours = df_filtre.copy()
+    # On crée des bins de 20h en 20h (par exemple)
+    df_hours['hours_bin'] = pd.cut(df_hours['average_montly_hours'], bins=range(80, 331, 20), right=False)
+    df_hours_grouped = df_hours.groupby('hours_bin')['satisfaction_level'].mean().reset_index()
+
+    # B) Satisfaction vs ancienneté
+    df_seniority = df_filtre.groupby('time_spend_company')['satisfaction_level'].mean().reset_index()
+
+    # C) Satisfaction vs évaluation
+    df_eval = df_filtre.copy()
+    # On crée 5 bins (0.0 à 1.0)
+    df_eval['eval_bin'] = pd.cut(df_eval['last_evaluation'], bins=[0,0.2,0.4,0.6,0.8,1.0], right=False)
+    df_eval_grouped = df_eval.groupby('eval_bin')['satisfaction_level'].mean().reset_index()
+
+    # Construction de la figure en sous-graphes
+    fig_curves = make_subplots(
+        rows=1, cols=3,
+        subplot_titles=(
+            "Satisfaction vs Heures de travail",
+            "Satisfaction vs Ancienneté",
+            "Satisfaction vs Évaluation"
+        )
+    )
+
+    # Trace 1 : Heures de travail
+    fig_curves.add_trace(
+        go.Scatter(
+            x=df_hours_grouped['hours_bin'].astype(str),
+            y=df_hours_grouped['satisfaction_level'],
+            mode='lines+markers',
+            name='Heures'
+        ),
+        row=1, col=1
+    )
+
+    # Trace 2 : Ancienneté
+    fig_curves.add_trace(
+        go.Scatter(
+            x=df_seniority['time_spend_company'],
+            y=df_seniority['satisfaction_level'],
+            mode='lines+markers',
+            name='Ancienneté'
+        ),
+        row=1, col=2
+    )
+
+    # Trace 3 : Évaluation
+    fig_curves.add_trace(
+        go.Scatter(
+            x=df_eval_grouped['eval_bin'].astype(str),
+            y=df_eval_grouped['satisfaction_level'],
+            mode='lines+markers',
+            name='Évaluation'
+        ),
+        row=1, col=3
+    )
+
+    fig_curves.update_layout(
+        title_text="Satisfaction moyenne en fonction de différents facteurs",
+        height=500
+    )
+
+    st.plotly_chart(fig_curves, use_container_width=True)
+
+
+
 
 # Afficher les KPIs
 afficher_kpis()
