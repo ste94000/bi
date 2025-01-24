@@ -142,7 +142,7 @@ if st.sidebar.checkbox("Afficher des visualisations"):
             x="number_project",
             y="average_montly_hours",
             color="left",
-            barmode="group",
+            #barmode="group",
             title="Projets vs. Heures mensuelles"
         )
         st.plotly_chart(fig_charge)
