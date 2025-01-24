@@ -4,6 +4,8 @@ import plotly.express as px
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 
+
+
 # Configuration du tableau de bord
 st.set_page_config(page_title="Tableau de bord RH - Pilotage du Turnover", layout="wide")
 
@@ -16,26 +18,26 @@ def charger_donnees():
 
 df = charger_donnees()
 
-# -------------------------------------------------------------------
-# Pré-traitement : conversion des colonnes satisfaction_level et last_evaluation
-# en float (remplacement de virgule par un point si nécessaire).
-# -------------------------------------------------------------------
-df[["satisfaction_level", "last_evaluation"]] = df[["satisfaction_level", "last_evaluation"]].apply(
-    lambda x: x.str.replace(",", ".").astype(float)
+# IMPORTANT : Convertir correctement les colonnes numériques
+# Remplace les virgules par des points et convertit en float
+df[["satisfaction_level", "last_evaluation"]] = (
+    df[["satisfaction_level", "last_evaluation"]]
+    .apply(lambda x: x.str.replace(",", ".").astype(float))
 )
 
 # Fonction pour calculer les KPIs
-def calculer_kpis(dataframe):
-    total_employes = dataframe.shape[0]
-    total_depart = dataframe[dataframe['left'] == 1].shape[0]
+def calculer_kpis(df):
+    total_employes = df.shape[0]
+    total_depart = df[df['left'] == 1].shape[0]
     taux_turnover = (total_depart / total_employes) * 100
 
-    # Salaire moyen (attention : ici c'est la modalité la plus fréquente, pas la moyenne arithmétique)
-    salaire_moyen = dataframe['salary'].value_counts().idxmax()
+    # Pour le "salaire moyen", l'exemple original prenait la modalité la plus fréquente
+    # (idxmax() sur la fréquence). À adapter selon votre logique.
+    salaire_moyen = df['salary'].value_counts().idxmax()
 
-    satisfaction_moyenne = dataframe['satisfaction_level'].mean()
-    heures_travaillees_moy = dataframe['average_montly_hours'].mean()
-    promo_moy = dataframe['promotion_last_5years'].mean()
+    satisfaction_moyenne = df['satisfaction_level'].mean()
+    heures_travaillees_moy = df['average_montly_hours'].mean()
+    promo_moy = df['promotion_last_5years'].mean()
 
     return total_employes, total_depart, taux_turnover, salaire_moyen, satisfaction_moyenne, heures_travaillees_moy, promo_moy
 
@@ -44,9 +46,9 @@ jobs = df['job'].unique()
 job_selection = st.selectbox("Sélectionnez un type de poste", ["Tous les postes"] + list(jobs))
 
 # Filtrer les données en fonction du job sélectionné
-df_filtered = df.copy()
+df_filtre = df.copy()
 if job_selection != "Tous les postes":
-    df_filtered = df_filtered[df_filtered['job'] == job_selection]
+    df_filtre = df[df['job'] == job_selection]
 
 # Calcul des KPIs pour le dataset filtré
 (
@@ -57,7 +59,7 @@ if job_selection != "Tous les postes":
     satisfaction_moyenne,
     heures_travaillees_moy,
     promo_moy
-) = calculer_kpis(df_filtered)
+) = calculer_kpis(df_filtre)
 
 # Affichage des KPIs
 def afficher_kpis():
@@ -78,7 +80,7 @@ def afficher_kpis():
 
     col4, col5, col6 = st.columns(3)
     with col4:
-        st.markdown("#### 💸 Salaire le plus fréquent")
+        st.markdown("#### 💸 Salaire (Modalité la plus fréquente)")
         st.metric(label="Salaire", value=f"{salaire_moyen}")
 
     with col5:
@@ -92,84 +94,73 @@ def afficher_kpis():
 # Sidebar pour les options d'analyse
 st.sidebar.header("Options d'analyse")
 
-# -- Option d'afficher des visualisations
+# Exemple d'aperçu des données (décommenter si besoin)
+# if st.sidebar.checkbox("Afficher l'aperçu des données"):
+#     st.subheader("Aperçu des Données")
+#     st.write("**Dimensions du dataset :**", df_filtre.shape)
+#     st.dataframe(df_filtre.head())
+
+# Visualisations sur le turnover avec Plotly
 if st.sidebar.checkbox("Afficher des visualisations"):
-    st.subheader("Visualisations du Turnover (Plotly)")
+    st.subheader("Visualisations du Turnover")
 
-    # ----------------------------------------------------------------
-    # 1) Turnover par Job (équivalent Seaborn countplot -> px.histogram)
-    # ----------------------------------------------------------------
-    fig_job = px.histogram(
-        df_filtered,
-        x='job',
-        color='left',
-        barmode='group',
-        title="Turnover par Département/Job",
-        labels={'job': 'Job', 'count': 'Nombre d\'employés'}
-    )
-    fig_job.update_layout(xaxis={'categoryorder':'total descending'})
-    fig_job.update_xaxes(tickangle=45)
+    col1, col2 = st.columns(2)
 
-    # ----------------------------------------------------------------
-    # 2) Départs en fonction de la Satisfaction et l'Évaluation
-    #    (équivalent Seaborn scatterplot -> px.scatter)
-    # ----------------------------------------------------------------
-    fig_scatter = px.scatter(
-        df_filtered,
-        x='satisfaction_level',
-        y='last_evaluation',
-        color='left',
-        title="Départs en fonction de la Satisfaction et de l'Évaluation",
-        labels={'satisfaction_level': 'Satisfaction', 'last_evaluation': 'Évaluation'}
-    )
+    # 1) Turnover par département (countplot -> histogram)
+    with col1:
+        st.markdown("#### Turnover par Département")
+        fig_turnover_dept = px.histogram(
+            df_filtre,
+            x="job",
+            color="left",
+            barmode="group",
+            title="Turnover par Département"
+        )
+        # Rotation de l'axe X si nécessaire
+        fig_turnover_dept.update_layout(xaxis={'tickangle': -45})
+        st.plotly_chart(fig_turnover_dept)
 
-    # ----------------------------------------------------------------
-    # 3) Départs en fonction du nombre de projets et des heures
-    #    (équivalent Seaborn barplot -> px.bar)
-    # ----------------------------------------------------------------
-    # On peut utiliser groupby ou directement px.bar en précisant x=, y=, color= et l'agrégation
-    # Pour se rapprocher du barplot moyen, on peut faire un groupby avant.
-    df_bar = df_filtered.groupby(['number_project', 'left'])['average_montly_hours'].mean().reset_index()
-    fig_bar = px.bar(
-        df_bar,
-        x='number_project',
-        y='average_montly_hours',
-        color='left',
-        barmode='group',
-        title="Départs en fonction du nombre de projets et de la charge de travail moyenne",
-        labels={'number_project': 'Nombre de projets', 'average_montly_hours': 'Heures moyennes'}
-    )
+    # 2) Départs en fonction de la satisfaction et de l'évaluation
+    with col2:
+        st.markdown("#### Départs en fonction de la Satisfaction et de l'Évaluation")
+        fig_satisfaction_eval = px.scatter(
+            df_filtre,
+            x="satisfaction_level",
+            y="last_evaluation",
+            color="left",
+            title="Satisfaction vs. Évaluation"
+        )
+        st.plotly_chart(fig_satisfaction_eval)
 
-    # ----------------------------------------------------------------
-    # 4) Impact de la Charge de Travail sur l'Évaluation de performance et les Départs
-    #    (équivalent Seaborn scatterplot -> px.scatter)
-    # ----------------------------------------------------------------
-    fig_scatter_eval = px.scatter(
-        df_filtered,
-        x='average_montly_hours',
-        y='last_evaluation',
-        color='left',
-        title="Impact de la Charge de Travail sur l'Évaluation de performance et les Départs",
-        labels={'average_montly_hours': 'Heures mensuelles', 'last_evaluation': 'Évaluation'}
-    )
+    col3, col4 = st.columns(2)
 
-    # Mise en page des graphiques sur 2 colonnes
-    col_viz1, col_viz2 = st.columns(2)
-    with col_viz1:
-        st.plotly_chart(fig_job, use_container_width=True)
-    with col_viz2:
-        st.plotly_chart(fig_scatter, use_container_width=True)
+    # 3) Départs en fonction de la charge de travail (barplot)
+    with col3:
+        st.markdown("#### Départs en fonction de la charge de travail")
+        fig_charge = px.bar(
+            df_filtre,
+            x="number_project",
+            y="average_montly_hours",
+            color="left",
+            barmode="group",
+            title="Projets vs. Heures mensuelles"
+        )
+        st.plotly_chart(fig_charge)
 
-    col_viz3, col_viz4 = st.columns(2)
-    with col_viz3:
-        st.plotly_chart(fig_bar, use_container_width=True)
-    with col_viz4:
-        st.plotly_chart(fig_scatter_eval, use_container_width=True)
+    # 4) Impact de la charge de travail sur l'évaluation de performance et les départs
+    with col4:
+        st.markdown("#### Impact de la Charge de Travail sur l'Évaluation de performance et les Départs")
+        fig_workload_eval = px.scatter(
+            df_filtre,
+            x="average_montly_hours",
+            y="last_evaluation",
+            color="left",
+            title="Heures mensuelles vs. Évaluation"
+        )
+        st.plotly_chart(fig_workload_eval)
 
-    # ----------------------------------------------------------------
-    # 5) Graphique en courbe (Plotly) : moyenne de la satisfaction
-    #    en fonction des heures de travail, de l'ancienneté et de l'évaluation
-    # ----------------------------------------------------------------
+if st.sidebar.checkbox("Analyse de la satisfaction"):
+    st.subheader("Visualisations du Turnover")
 
     st.subheader("Satisfaction moyenne par Heures de travail, Ancienneté et Évaluation (courbes)")
 
@@ -178,16 +169,16 @@ if st.sidebar.checkbox("Afficher des visualisations"):
     # L'ancienneté (time_spend_company) est déjà discrète (1,2,3,...).
 
     # A) Satisfaction vs heures de travail
-    df_hours = df_filtered.copy()
+    df_hours = df_filtre.copy()
     # On crée des bins de 20h en 20h (par exemple)
     df_hours['hours_bin'] = pd.cut(df_hours['average_montly_hours'], bins=range(80, 331, 20), right=False)
     df_hours_grouped = df_hours.groupby('hours_bin')['satisfaction_level'].mean().reset_index()
 
     # B) Satisfaction vs ancienneté
-    df_seniority = df_filtered.groupby('time_spend_company')['satisfaction_level'].mean().reset_index()
+    df_seniority = df_filtre.groupby('time_spend_company')['satisfaction_level'].mean().reset_index()
 
     # C) Satisfaction vs évaluation
-    df_eval = df_filtered.copy()
+    df_eval = df_filtre.copy()
     # On crée 5 bins (0.0 à 1.0)
     df_eval['eval_bin'] = pd.cut(df_eval['last_evaluation'], bins=[0,0.2,0.4,0.6,0.8,1.0], right=False)
     df_eval_grouped = df_eval.groupby('eval_bin')['satisfaction_level'].mean().reset_index()
@@ -242,7 +233,10 @@ if st.sidebar.checkbox("Afficher des visualisations"):
 
     st.plotly_chart(fig_curves, use_container_width=True)
 
-# Afficher les KPIs (en bas ou en haut selon votre préférence)
+
+
+
+# Afficher les KPIs
 afficher_kpis()
 
 # Footer
