@@ -50,10 +50,10 @@ df_filtre = df.copy()
 # a) Sélecteur pour 'job'
 jobs_uniques = sorted(df['job'].unique())
 job_options = ["Tous"] + jobs_uniques
-job_selection = st.select_slider(
+job_selection = st.selectbox(
     "Sélectionnez un type de poste",
     options=job_options,
-    value="Tous"  # valeur par défaut
+    index=0  # Par défaut "Tous"
 )
 if job_selection != "Tous":
     df_filtre = df_filtre[df_filtre['job'] == job_selection]
